@@ -22,7 +22,9 @@ status="start"
 S_flag=1
 Ind="Off"
 brake = 0
-rate = 0
+# rate = 0
+
+
 
 def setUpChannel(channel=0,
                  openFlags=canlib.canOPEN_ACCEPT_VIRTUAL,
@@ -66,10 +68,10 @@ def callback_joy(data):
            status="start"
            S_flag=1
     '''
-    #if data.buttons[3]:                      #Y->accelerate
-    #    datacc+=5
-    #elif data.buttons[0]:                   #A->decelerate
-    #    datacc-=10                           
+    if data.buttons[3]:                      #Y->accelerate
+        datacc+=5
+    elif data.buttons[0]:                   #A->decelerate
+        datacc-=10                           
     if data.buttons[2]:                      #X->steering  //confirm
 
         datstr-=5
@@ -95,9 +97,9 @@ def callback_joy(data):
         RB_FLAG = 1
     elif data.buttons[4]:                       #Steering reset LB
         LB_FLAG = 1
-    #elif (-1 <= data.axes[5] <= 1):
-        #RT_DATA = 1-data.axes[5]
-        #brake =int(50*RT_DATA)   also see line 172
+    elif (-1 <= data.axes[5] <= 1):
+        RT_DATA = 1-data.axes[5]
+        brake =int(50*RT_DATA)   #also see line 172
     elif (-1 <= data.axes[3] <= 1):              #wiper Stick-Right left/right
         LT_DATA = 1-data.axes[3]
     if(datstr<-40):
@@ -121,11 +123,9 @@ def callback_accel(data):
 
 
 def start():
-	global rate
-    pub = rospy.Publisher('velocity_can',Int16,queue_size=10)
     rospy.init_node('subscribe', anonymous=True)
-    rate = rospy.Rate(100)
     rospy.Subscriber("joy",Joy, callback_joy)
+    rate = rospy.Rate(100)
     #rospy.Subscriber("accel",Int16,callback_accel)
     rospy.spin()
 
@@ -267,6 +267,9 @@ def c_send():
 def c_recieve():
     global gear_stat
     global rate
+    pub = rospy.Publisher('velocity_can',Int16,queue_size=10)   
+    # rate = rospy.Rate(100)
+    #rate = rospy.Rate(0)
     while True:
         try:
             (msgId, msg, dlc, flg, time) = ch0.read()
@@ -274,10 +277,9 @@ def c_recieve():
             if msgId == 0x76C:
                 if data[13]=='1':
                     velocity = int(msg[7])
-                    print "velocity : " , msg[7]
-
                     pub.publish(velocity)
                     rate.sleep()
+                    print "velocity : " , msg[7]
 
                 else:
                     print "Invalid velocity"
@@ -297,12 +299,9 @@ def c_recieve():
 if __name__ == '__main__':
     cl = canlib.canlib()
     print("canlib version: %s" % cl.getVersion())
-
-
     channel_0 = 0
     ch0 = setUpChannel(channel=0)
     thread.start_new_thread( c_send , ())
     thread.start_new_thread( c_recieve , ())
     start()
-
     tearDownChannel(ch0)
